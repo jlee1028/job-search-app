@@ -1,0 +1,12 @@
+name: job-search-app
+services:
+  backend:
+    image: job-search-app/backend
+    build: ./backend
+    volumes:
+      - ./backend/:/app
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    env_file: backend/.env
