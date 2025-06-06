@@ -1,14 +1,15 @@
-import os
 import certifi
 from contextlib import asynccontextmanager
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi import FastAPI
 from app.api.routes import api_router
-from app.models import Job
+from app.models.jobs import Job
+from app.models.users import User
+from app.models.links import JobUserLink
 from app.core.config import settings
 
-MONGO_URI = settings.MONGODB_URI
+MONGO_URI = settings.MONGO_URI
 
 client = AsyncIOMotorClient(
         MONGO_URI, tlsCAFile=certifi.where()
@@ -21,7 +22,9 @@ async def lifespan(app: FastAPI):
     await init_beanie(
         database=db,  
         document_models=[
-            Job,  
+            Job,
+            User,
+            JobUserLink
         ],
     )
     yield
@@ -37,8 +40,4 @@ app.include_router(router=api_router)
 
 if __name__ == "__main__":
     import uvicorn
-
-    from dotenv import load_dotenv
-    load_dotenv(override=True)
-    
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

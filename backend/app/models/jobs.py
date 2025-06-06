@@ -41,7 +41,6 @@ class Job(Document):
     # time_since_posted: Optional[str] = None
     num_applicants: Optional[str] = None
     description: Optional[str] = None
-    status: JobStatus = JobStatus.NOT_APPLIED
     search_keys: list[str]
     last_updated: datetime = datetime.now(tz=timezone.utc)
 

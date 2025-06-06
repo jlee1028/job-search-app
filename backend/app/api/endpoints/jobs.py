@@ -1,10 +1,15 @@
 from typing import Annotated, Optional
+import asyncio
 
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
+from beanie.operators import In
 
-from app.models import Job
+from app.models.jobs import Job
+from app.models.links import JobUserLink
 from app.services.job_search_service import JobSearchService
+
+from app.api.deps import CurrentUser
 
 router = APIRouter()
 
@@ -15,10 +20,21 @@ class JobSearchQuery(BaseModel):
     limit: int = Field(default=10, gt=0, le=100)
 
 @router.get('/search')
-async def search_jobs(q: Annotated[JobSearchQuery, Query()]) -> list[Job]:
+async def search_jobs(current_user: CurrentUser, q: Annotated[JobSearchQuery, Query()]) -> list[Job]:
     job_search_service = JobSearchService(**q.model_dump())
-    return await job_search_service.search()
+    jobs = await job_search_service.search()
 
+    await asyncio.gather(
+        *[
+            JobUserLink( 
+                job_id=job.job_id,
+                user_id=current_user.user_id
+                ).save()
+            for job in jobs
+        ])
+    
+    return jobs
+        
 
 class JobSummary(BaseModel):
     job_id: int
@@ -27,8 +43,10 @@ class JobSummary(BaseModel):
     location: Optional[str] = None
 
 @router.get('/list')
-async def list_jobs(limit: int=20) -> list[JobSummary]:
-    jobs: list[Job] = await Job.find({}).limit(limit).to_list()
+async def list_jobs(current_user: CurrentUser, limit: int=20) -> list[JobSummary]:
+    links = await JobUserLink.find(JobUserLink.user_id == current_user.user_id).limit(limit).to_list()
+    job_ids = [link.job_id for link in links]
+    jobs = await Job.find(In(Job.job_id, job_ids)).to_list()
     return [
         JobSummary(
             job_id=job.job_id,
@@ -37,7 +55,6 @@ async def list_jobs(limit: int=20) -> list[JobSummary]:
             location=job.location
             ) for job in jobs
         ]
-
 
 @router.get('/{job_id}')
 async def get_job_by_id(job_id: int) -> Job:
