@@ -6,7 +6,7 @@ bs4
 pymongo[srv]
 fastapi
 uvicorn
-# pyjwt
-# passlib[bcrypt]
+pyjwt
+passlib[bcrypt]
 fastapi-users[beanie]
 beanie
