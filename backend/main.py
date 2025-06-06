@@ -6,8 +6,9 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi import FastAPI
 from app.api.routes import api_router
 from app.models import Job
+from app.core.config import settings
 
-MONGO_URI = os.getenv('MONGODB_URI')
+MONGO_URI = settings.MONGODB_URI
 
 client = AsyncIOMotorClient(
         MONGO_URI, tlsCAFile=certifi.where()
@@ -32,7 +33,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-app.include_router(router=api_router, prefix='/api')
+app.include_router(router=api_router)
 
 if __name__ == "__main__":
     import uvicorn

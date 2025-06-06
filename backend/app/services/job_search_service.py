@@ -1,10 +1,10 @@
-import os
 from datetime import datetime, timezone, timedelta
 from app.services.scraping_service import JobPostScraper, JobContentScraper
 from app.models import JobPosting, Job
 from beanie.odm.operators.update.general import Set
+from app.core.config import settings
 
-MONGO_URI = os.getenv('MONGODB_URI')
+MONGO_URI = settings.MONGODB_URI
 
 class JobSearchService:
     def __init__(

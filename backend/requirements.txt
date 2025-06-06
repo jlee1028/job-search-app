@@ -1,6 +1,7 @@
 python-dotenv
 requests
 pydantic
+pydantic-settings
 bs4
 pymongo[srv]
 fastapi
