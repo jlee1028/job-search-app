@@ -2,9 +2,9 @@ import os
 from datetime import datetime, timezone, timedelta
 from app.services.scraping_service import JobPostScraper, JobContentScraper
 from app.models import JobPosting, Job
-from app.db import JobsDatabaseService
+from beanie.odm.operators.update.general import Set
 
-mongo_uri = os.getenv('MONGODB_URI')
+MONGO_URI = os.getenv('MONGODB_URI')
 
 class JobSearchService:
     def __init__(
@@ -16,7 +16,6 @@ class JobSearchService:
             ):
         self._job_post_scraper = JobPostScraper()
         self._job_content_scraper = JobContentScraper()
-        self._database_service = JobsDatabaseService(uri=mongo_uri)
         self._keywords = keywords
         self._location = location
         self._max_days_since_posted = max_days_since_posted
@@ -69,12 +68,16 @@ class JobSearchService:
     def _check_cache(self) -> list[Job]:
         ...
 
-    def _search_db(self) -> list[Job]:
+    async def _search_db(self) -> list[Job]:
         cutoff_date = datetime.now(tz=timezone.utc) - timedelta(days=self.max_days_since_posted)
-        filter = {'search_keys': {'$in': [self.search_key]}, 'last_updated': {'$gte': cutoff_date}}
-        return self._database_service.get_jobs(filter=filter, limit=self.limit)
+        jobs = await Job.find(
+            # In(Job.search_keys, [self.search_key]),
+            Job.search_keys == self.search_key,
+            Job.last_updated >= cutoff_date
+            ).limit(self.limit).to_list()
+        return jobs
 
-    def _scrape_jobs(self) -> list[Job]:
+    async def _scrape_jobs(self) -> list[Job]:
         job_postings = [
             JobPosting(
                 **job_posting
@@ -87,19 +90,28 @@ class JobSearchService:
                 ]
         jobs = [
             Job(
-                **self._job_content_scraper.get_job_content(job_id=job_posting.id),
+                **self._job_content_scraper.get_job_content(job_id=job_posting.job_id),
                 benefits=job_posting.benefits,
                 date_posted=job_posting.date_posted,
                 search_keys=[self.search_key],
                 ) for job_posting in job_postings
             ]
         for job in jobs:
-            self._database_service.upsert_job(job)
+            await Job.find_one(Job.job_id == job.job_id).upsert(
+                Set(
+                    {
+                        'last_updated': datetime.now(tz=timezone.utc),
+                        'date_posted': job.date_posted,
+                        'num_applicants': job.num_applicants
+                        }
+                ),
+                on_insert=job
+            )
         return jobs
 
-    def search(self) -> list[Job]:
+    async def search(self) -> list[Job]:
         # check the db
-        jobs = self._search_db()
+        jobs = await self._search_db()
         job_count = len(jobs)
         if job_count == self.limit:
             print(f'all {self.limit} results returned from database')
@@ -113,16 +125,16 @@ class JobSearchService:
             # scrape the minimum required and combine with db ones
             original_limit = self.limit
             self.limit = self.limit - len(jobs)
-            jobs.extend(self._scrape_jobs())
+            jobs.extend(await self._scrape_jobs())
             self.limit = original_limit
             return jobs[:self.limit]
         else:
             print('no results returned from database')
         
         # scrape jobs and write to db
-        jobs = self._scrape_jobs()
+        jobs = await self._scrape_jobs()
         print(f'{len(jobs)} documents returned from scraper and upserted into the db')
         return jobs
 
-    def get_by_id(self, id) -> Job | None:
-        return self._database_service.get_jobs(filter={'id': id})
+    async def get_by_id(self, job_id) -> Job | None:
+        return Job.find_one(filter={'job_id': job_id})

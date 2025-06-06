@@ -94,7 +94,6 @@ class JobPostScraper:
                 max_seconds_since_posted=max_seconds_since_posted,
                 start=start
                 )
-            print(url)
             resp = requests.get(url=url)
             if 200 > resp.status_code > 299:                
                 raise requests.HTTPError(f'error {resp.status_code} - {resp.reason} - {resp.text}')
@@ -200,5 +199,5 @@ class JobContentScraper:
             raise requests.HTTPError(f'error {resp.status_code} - {resp.reason} - {resp.text}')
         job_soup = BeautifulSoup(resp.text, 'html.parser')
         job_content = self._parse_job_data(job_soup)
-        job_content.update({'id': job_id})
+        job_content.update({'job_id': job_id})
         return job_content
