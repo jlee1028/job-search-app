@@ -66,6 +66,7 @@ class JobPostScraper:
             keywords: str=None,
             location: str=None,
             max_days_since_posted: int=1,
+            start: int=0,
             limit: int=10
             ) -> list[dict]:
         """scrape a list of raw html job listings from LinkedIn
@@ -85,7 +86,6 @@ class JobPostScraper:
         """
         limit = limit - limit%10 if limit>9 else limit
         max_seconds_since_posted = f'r{max_days_since_posted * 86400}'
-        start = 0
         parsed_job_listings = []
         while len(parsed_job_listings) < limit:
             url = self._url.format(

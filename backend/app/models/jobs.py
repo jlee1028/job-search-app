@@ -37,7 +37,7 @@ class Job(Document):
     salary_range: Optional[str] = None
     job_criteria_items: Optional[JobCriteriaItems] = None
     benefits: Optional[str] = None
-    date_posted: Optional[str] = None
+    date_posted: Optional[datetime] = None
     # time_since_posted: Optional[str] = None
     num_applicants: Optional[str] = None
     description: Optional[str] = None

@@ -9,6 +9,7 @@ class JobSearchService:
             keywords: str='',
             location: str='',
             max_days_since_posted: int=1,
+            start: int=0,
             limit: int=10
             ):
         self._job_post_scraper = JobPostScraper()
@@ -16,6 +17,7 @@ class JobSearchService:
         self._keywords = keywords
         self._location = location
         self._max_days_since_posted = max_days_since_posted
+        self._start = start
         self._limit = limit
         
     @property
@@ -53,6 +55,19 @@ class JobSearchService:
         self._max_days_since_posted = new_max_days_since_posted
 
     @property
+    def start(self) -> int:
+        return self._start
+    
+    @start.setter
+    def start(self, new_start: int):
+        if not isinstance(new_start, int):
+            raise TypeError(f'"start" must be an int: {new_start} is not the right type')
+        if new_start <= 0:
+            raise ValueError(f'new_start must be > 0. value: {new_start}')
+        # only start at intervals of 10
+        self._start = new_start - new_start % 10 if new_start > 10 or new_start == 0 else 10
+
+    @property
     def limit(self) -> int:
         return self._limit
     
@@ -60,7 +75,10 @@ class JobSearchService:
     def limit(self, new_limit: int):
         if not isinstance(new_limit, int):
             raise TypeError(f'"limit" must be an int: {new_limit} is not the right type')
-        self._limit = new_limit
+        if new_limit <= 0:
+            raise ValueError(f'limit must be > 0. value: {new_limit}')
+        # only request in increments of 10
+        self._limit = new_limit - new_limit % 10 if new_limit > 10 else 10
 
     def _check_cache(self) -> list[Job]:
         ...
@@ -70,7 +88,7 @@ class JobSearchService:
         jobs = await Job.find(
             # In(Job.search_keys, [self.search_key]),
             Job.search_keys == self.search_key,
-            Job.last_updated >= cutoff_date
+            Job.date_posted >= cutoff_date
             ).limit(self.limit).to_list()
         return jobs
 
@@ -82,6 +100,7 @@ class JobSearchService:
                     keywords=self.keywords,
                     location=self.location,
                     max_days_since_posted=self.max_days_since_posted,
+                    start=self.start,
                     limit=self.limit
                     )
                 ]
@@ -117,13 +136,17 @@ class JobSearchService:
             print(f'limit not properly implemented, {self.limit} jobs requested but {len(jobs)} returned')
             return jobs
         elif job_count > 0:
-            print('partial results returned from database')
+            print(f'{job_count} results returned from database')
             # if returns less postings than requested,
             # scrape the minimum required and combine with db ones
             original_limit = self.limit
             self.limit = self.limit - len(jobs)
+            self.start = job_count
+            print(f'scraping {self.limit} more jobs starting at job {self.start}...')
             jobs.extend(await self._scrape_jobs())
             self.limit = original_limit
+            print(f'{len(jobs)} total jobs retreived')
+            print(f'{len(jobs[:self.limit])} jobs returned to user')
             return jobs[:self.limit]
         else:
             print('no results returned from database')
