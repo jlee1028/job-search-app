@@ -66,6 +66,7 @@ class JobPostScraper:
             keywords: str=None,
             location: str=None,
             max_days_since_posted: int=1,
+            start: int=0,
             limit: int=10
             ) -> list[dict]:
         """scrape a list of raw html job listings from LinkedIn
@@ -85,7 +86,6 @@ class JobPostScraper:
         """
         limit = limit - limit%10 if limit>9 else limit
         max_seconds_since_posted = f'r{max_days_since_posted * 86400}'
-        start = 0
         parsed_job_listings = []
         while len(parsed_job_listings) < limit:
             url = self._url.format(
@@ -94,7 +94,6 @@ class JobPostScraper:
                 max_seconds_since_posted=max_seconds_since_posted,
                 start=start
                 )
-            print(url)
             resp = requests.get(url=url)
             if 200 > resp.status_code > 299:                
                 raise requests.HTTPError(f'error {resp.status_code} - {resp.reason} - {resp.text}')
@@ -200,5 +199,5 @@ class JobContentScraper:
             raise requests.HTTPError(f'error {resp.status_code} - {resp.reason} - {resp.text}')
         job_soup = BeautifulSoup(resp.text, 'html.parser')
         job_content = self._parse_job_data(job_soup)
-        job_content.update({'id': job_id})
+        job_content.update({'job_id': job_id})
         return job_content
