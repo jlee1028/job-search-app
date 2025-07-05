@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import secrets
+from logging import Logger
+from app.utils import get_logger
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -8,6 +10,8 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
         extra="ignore",
     )
+
+    logger: Logger = get_logger('job-app-logger')
 
     API_V1_STR: str = "/api/v1"
     

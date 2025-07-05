@@ -2,6 +2,7 @@ from datetime import datetime, timezone, timedelta
 from app.services.scraping_service import JobPostScraper, JobContentScraper
 from app.models.jobs import JobPosting, Job
 from beanie.odm.operators.update.general import Set
+from app.core.config import settings
 
 class JobSearchService:
     def __init__(
@@ -86,7 +87,6 @@ class JobSearchService:
     async def _search_db(self) -> list[Job]:
         cutoff_date = datetime.now(tz=timezone.utc) - timedelta(days=self.max_days_since_posted)
         jobs = await Job.find(
-            # In(Job.search_keys, [self.search_key]),
             Job.search_keys == self.search_key,
             Job.date_posted >= cutoff_date
             ).limit(self.limit).to_list()
@@ -130,30 +130,30 @@ class JobSearchService:
         jobs = await self._search_db()
         job_count = len(jobs)
         if job_count == self.limit:
-            print(f'all {self.limit} results returned from database')
+            settings.logger.info(f'all {self.limit} results returned from database')
             return jobs
         elif job_count > self.limit:
-            print(f'limit not properly implemented, {self.limit} jobs requested but {len(jobs)} returned')
+            settings.logger.info(f'limit not properly implemented, {self.limit} jobs requested but {len(jobs)} returned')
             return jobs
         elif job_count > 0:
-            print(f'{job_count} results returned from database')
+            settings.logger.info(f'{job_count} results returned from database')
             # if returns less postings than requested,
             # scrape the minimum required and combine with db ones
             original_limit = self.limit
             self.limit = self.limit - len(jobs)
             self.start = job_count
-            print(f'scraping {self.limit} more jobs starting at job {self.start}...')
+            settings.logger.info(f'scraping {self.limit} more jobs starting at job {self.start}...')
             jobs.extend(await self._scrape_jobs())
             self.limit = original_limit
-            print(f'{len(jobs)} total jobs retreived')
-            print(f'{len(jobs[:self.limit])} jobs returned to user')
+            settings.logger.info(f'{len(jobs)} total jobs retreived')
+            settings.logger.info(f'{len(jobs[:self.limit])} jobs returned to user')
             return jobs[:self.limit]
         else:
-            print('no results returned from database')
+            settings.logger.info('no results returned from database')
         
         # scrape jobs and write to db
         jobs = await self._scrape_jobs()
-        print(f'{len(jobs)} documents returned from scraper and upserted into the db')
+        settings.logger.info(f'{len(jobs)} documents returned from scraper and upserted into the db')
         return jobs
 
     async def get_by_id(self, job_id) -> Job | None:
