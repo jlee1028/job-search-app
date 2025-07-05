@@ -1,15 +1,15 @@
 from typing import Annotated, Optional
-from datetime import datetime, timezone
 import asyncio
 import uuid
 
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
-from beanie.operators import In, Set
+from beanie.operators import In
 
 from app.models.jobs import Job
 from app.models.links import JobUserLink
 from app.services.job_search_service import JobSearchService
+from app.core.config import settings
 
 from app.api.deps import CurrentUser
 
@@ -30,32 +30,18 @@ class JobSearchQuery(BaseModel):
 async def search_jobs(current_user: CurrentUser, q: Annotated[JobSearchQuery, Query()]) -> list[Job]:
     job_search_service = JobSearchService(**q.model_dump())
     jobs = await job_search_service.search()
-    print(f'total jobs returned: {len(jobs)}')
+    settings.logger.info(f'total jobs returned: {len(jobs)}')
 
-    for job in jobs:
-        job_link = JobUserLink(
-            id=make_job_user_link_id(job.job_id, current_user.user_id),
-            job_id=job.job_id,
-            user_id=current_user.user_id
-            )
-        result = await job_link.save()
-    
-    # await asyncio.gather(
-    #     *[
-    #         JobUserLink.find( 
-    #             link_id=make_job_user_link_id(job.job_id, current_user.user_id)
-    #             ).upsert(
-    #                 Set(
-    #                     {'last_updated': datetime.now(tz=timezone.utc)}
-    #                 ),
-    #                 on_insert=JobUserLink(
-    #                     link_id=make_job_user_link_id(job.job_id, current_user.user_id),
-    #                     job_id=job.job_id,
-    #                     user_id=current_user.user_id
-    #                 )
-    #             )
-    #         for job in jobs
-    #     ])
+    await asyncio.gather(
+        *[
+            JobUserLink(
+                id=make_job_user_link_id(job.job_id, current_user.user_id),
+                job_id=job.job_id,
+                user_id=current_user.user_id
+                ).save()
+            for job in jobs
+        ]
+    )
     
     return jobs
         

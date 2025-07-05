@@ -1,6 +1,3 @@
-import logging
-logging.getLogger('passlib').setLevel(logging.ERROR)
-
 from passlib.context import CryptContext
 from datetime import datetime, timezone, timedelta
 from typing import Any
